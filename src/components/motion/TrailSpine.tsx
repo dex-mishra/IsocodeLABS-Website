@@ -79,7 +79,12 @@ export function TrailSpine() {
     }
   }, [enabled])
 
-  // Advance the trail with scroll.
+  // Advance the trail with scroll. The head is glued to the VIEWPORT CENTRE at
+  // all times: rather than mapping scroll fraction → arc-length (which drifts,
+  // because the weaving path adds length unevenly), we find the point on the
+  // path whose document-Y sits at scrollY + half a viewport, and reveal the
+  // stroke up to exactly there. So on screen the head holds dead-centre while
+  // the drawn line grows behind it.
   useEffect(() => {
     const path = pathRef.current
     const comet = cometRef.current
@@ -89,30 +94,48 @@ export function TrailSpine() {
     path.style.strokeDasharray = `${length}`
     path.style.strokeDashoffset = `${length}`
 
-    const state = { p: 0 }
-    const tween = gsap.to(state, {
-      p: 1,
-      ease: 'none',
-      scrollTrigger: {
-        trigger: document.body,
-        start: 'top top',
-        end: 'bottom bottom',
-        scrub: 0.6,
-      },
-      onUpdate: () => {
-        const at = state.p * length
-        path.style.strokeDashoffset = `${length - at}`
-        const pt = path.getPointAtLength(at)
-        comet.setAttribute('cx', `${pt.x}`)
-        comet.setAttribute('cy', `${pt.y}`)
-        comet.style.opacity = state.p > 0.005 && state.p < 0.998 ? '1' : '0'
-      },
-    })
-
-    return () => {
-      tween.scrollTrigger?.kill()
-      tween.kill()
+    // Sample the curve ONCE into a lookup table (y is monotonic top→bottom).
+    // Per scroll frame it's then a pure array binary-search + lerp — zero
+    // geometry calls, so the trail costs nothing while scrolling.
+    const N = 600
+    const xs = new Float32Array(N + 1)
+    const ys = new Float32Array(N + 1)
+    for (let i = 0; i <= N; i++) {
+      const pt = path.getPointAtLength((length * i) / N)
+      xs[i] = pt.x
+      ys[i] = pt.y
     }
+
+    const update = () => {
+      const targetY = window.scrollY + window.innerHeight * 0.5
+      let lo = 0
+      let hi = N
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1
+        if (ys[mid] < targetY) lo = mid
+        else hi = mid
+      }
+      const span = ys[hi] - ys[lo]
+      const t = gsap.utils.clamp(0, 1, span > 0 ? (targetY - ys[lo]) / span : 0)
+      const frac = (lo + t) / N
+      path.style.strokeDashoffset = `${length * (1 - frac)}`
+      comet.setAttribute('cx', `${xs[lo] + (xs[hi] - xs[lo]) * t}`)
+      comet.setAttribute('cy', `${ys[lo] + (ys[hi] - ys[lo]) * t}`)
+      comet.style.opacity = frac > 0.01 && frac < 0.99 ? '1' : '0'
+    }
+
+    // scrub:true → fires every scroll frame reading live scrollY, so the head
+    // tracks the centre with no smoothing lag of its own
+    const st = ScrollTrigger.create({
+      trigger: document.body,
+      start: 'top top',
+      end: 'bottom bottom',
+      scrub: true,
+      onUpdate: update,
+    })
+    update()
+
+    return () => st.kill()
   }, [geom])
 
   if (!enabled || !geom) return null

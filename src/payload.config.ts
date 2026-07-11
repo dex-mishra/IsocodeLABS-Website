@@ -14,8 +14,13 @@ import { ValueQuotes } from '@/collections/ValueQuotes'
 import { Quizzes, QuizStages, QuizQuestions } from '@/collections/Quizzes'
 import { LeadSubmissions } from '@/collections/LeadSubmissions'
 import { Pages } from '@/collections/Pages'
+import { Founders } from '@/collections/Founders'
+import { JobOpenings } from '@/collections/JobOpenings'
+import { Applications } from '@/collections/Applications'
+import { Resumes } from '@/collections/Resumes'
 import { SiteSettings } from '@/globals/SiteSettings'
 import { Homepage } from '@/globals/Homepage'
+import { ApplicationForm } from '@/globals/ApplicationForm'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -23,6 +28,7 @@ const dirname = path.dirname(filename)
 export default buildConfig({
   admin: {
     user: Users.slug,
+    importMap: { baseDir: path.resolve(dirname) },
     meta: {
       titleSuffix: ' — ISOCODELABS Admin',
     },
@@ -39,8 +45,12 @@ export default buildConfig({
     QuizQuestions,
     LeadSubmissions,
     Pages,
+    Founders,
+    JobOpenings,
+    Applications,
+    Resumes,
   ],
-  globals: [SiteSettings, Homepage],
+  globals: [SiteSettings, Homepage, ApplicationForm],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || 'dev-secret',
   typescript: {

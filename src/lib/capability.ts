@@ -46,35 +46,6 @@ export function useMotionTier(): MotionTier {
   )
 }
 
-let glOK: boolean | null = null
-
-/**
- * True only when a real, hardware-accelerated WebGL context is available.
- * Software renderers (GPU-blocklisted machines, some VMs) must get the
- * static frame — a janky or hung hero refutes the brand harder than a still.
- */
-export function webglAvailable(): boolean {
-  if (typeof window === 'undefined') return false
-  if (glOK !== null) return glOK
-  try {
-    const canvas = document.createElement('canvas')
-    // Accept any working context — a context-loss handler catches crashes at
-    // runtime, so we don't need to pre-reject on performance caveat.
-    const gl = (canvas.getContext('webgl2') ||
-      canvas.getContext('webgl') ||
-      canvas.getContext('experimental-webgl')) as WebGLRenderingContext | null
-    if (gl) {
-      gl.getExtension('WEBGL_lose_context')?.loseContext()
-      glOK = true
-    } else {
-      glOK = false
-    }
-  } catch {
-    glOK = false
-  }
-  return glOK
-}
-
 export function useIsDesktop(): boolean {
   return useSyncExternalStore(
     (cb) => {
